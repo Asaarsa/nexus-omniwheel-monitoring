@@ -26,7 +26,7 @@ if 'last_command' not in st.session_state:
 
 # --- SIDEBAR: KONTROL MODE & KONFIRMASI ---
 st.sidebar.title("🤖 Robot Control")
-st.sidebar.write("Apriyana Putra - Polibatam")
+st.sidebar.write("TEAM PBL NEXUS - Polibatam")
 
 selected_mode = st.sidebar.radio(
     "Pilih Mode Operasi:",
