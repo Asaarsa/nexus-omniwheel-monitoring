@@ -4,101 +4,128 @@ import numpy as np
 import plotly.graph_objects as go
 import time
 
-# --- CONFIGURATION ---
-st.set_page_config(page_title="Nexus Omni 4WD Monitor", layout="wide")
+# --- KONFIGURASI HALAMAN ---
+st.set_page_config(page_title="Nexus Omni 4WD Control", layout="wide")
 
-# Custom CSS untuk tampilan lebih profesional
+# Custom CSS untuk tema gelap yang menarik
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
-    .stMetric { background-color: #161b22; border-radius: 10px; padding: 15px; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #262730; color: white; }
+    .stButton>button:hover { background-color: #ff4b4b; border: 1px solid white; }
+    .stMetric { background-color: #161b22; border-radius: 10px; padding: 15px; border: 1px solid #30363d; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🤖 Nexus Omniwheel 4WD Telemetry")
-st.write("Project-Based Learning - Teknik Robotika Politeknik Negeri Batam")
+# --- INITIALIZING SESSION STATE ---
+# Digunakan agar mode tidak berubah sebelum dikonfirmasi
+if 'active_mode' not in st.session_state:
+    st.session_state.active_mode = "📊 Monitoring"
+if 'last_command' not in st.session_state:
+    st.session_state.last_command = "STOP"
 
-# --- SIDEBAR CONTROL ---
+# --- SIDEBAR: KONTROL MODE & KONFIRMASI ---
 st.sidebar.image("https://upload.wikimedia.org/wikipedia/id/c/c9/Logo_Polibatam.png", width=100)
-st.sidebar.header("Robot Control Panel")
-status = st.sidebar.status("Robot Connected", state="running")
-mode = st.sidebar.selectbox("Drive Mode", ["Field-Oriented", "Robot-Centric", "Fuzzy Auto-Correction"])
-st.sidebar.divider()
-st.sidebar.write("**System Health**")
-cpu_temp = st.sidebar.slider("Controller Temp", 30, 90, 45)
+st.sidebar.title("Robot Control Panel")
 
-# --- SIMULASI DATA KINEMATIKA & IMU ---
-# Dalam implementasi asli, data ini diambil dari sensor robot
-def generate_telemetry():
-    t = time.time()
+# Pilihan Mode (Belum Aktif sebelum dikonfirmasi)
+selected_mode = st.sidebar.radio(
+    "Pilih Mode Operasi:",
+    ["📊 Monitoring", "🎮 Manual Control", "🤖 Auto Mode"],
+    index=0
+)
+
+# Tombol Konfirmasi
+st.sidebar.divider()
+if st.sidebar.button("✅ KONFIRMASI MODE", type="primary"):
+    st.session_state.active_mode = selected_mode
+    st.sidebar.success(f"Mode {selected_mode} Aktif!")
+
+st.sidebar.info(f"Mode Saat Ini: **{st.session_state.active_mode}**")
+
+# --- FUNGSI SIMULASI DATA (KINEMATIKA & IMU) ---
+def get_telemetry():
     return {
-        "yaw": (np.sin(t * 0.5) * 20) % 360, # Simulasi Heading IMU
-        "pitch": np.sin(t) * 2,
-        "roll": np.cos(t) * 1.5,
-        "m1": 100 + np.random.randint(-5, 5),
-        "m2": 100 + np.random.randint(-5, 5),
-        "m3": 100 + np.random.randint(-5, 5),
-        "m4": 100 + np.random.randint(-5, 5),
-        "x": np.sin(t * 0.2) * 2, # Pergerakan di dalam kelas (meter)
-        "y": t % 5               # Pergerakan maju (meter)
+        "yaw": np.random.uniform(0, 360),
+        "pitch": np.random.uniform(-2, 2),
+        "roll": np.random.uniform(-2, 2),
+        "m1": np.random.randint(90, 110),
+        "m2": np.random.randint(90, 110),
+        "m3": np.random.randint(90, 110),
+        "m4": np.random.randint(90, 110),
+        "x": np.random.uniform(-2, 2),
+        "y": np.random.uniform(0, 5)
     }
 
-data = generate_telemetry()
+data = get_telemetry()
 
-# --- BARIS 1: METRIK UTAMA ---
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Heading (IMU)", f"{data['yaw']:.1f}°", "Gyro Active")
-m2.metric("Posisi X", f"{data['x']:.2f} m")
-m3.metric("Posisi Y", f"{data['y']:.2f} m")
-m4.metric("Battery", "12.4V", "-0.2V")
+# --- LOGIKA TAMPILAN UTAMA ---
 
-st.divider()
+st.title(f"Robot Operation: {st.session_state.active_mode}")
+st.write("Apriyana Putra - Teknik Robotika Politeknik Negeri Batam")
 
-# --- BARIS 2: VISUALISASI UTAMA ---
-col_left, col_right = st.columns([1, 1])
+if st.session_state.active_mode == "📊 Monitoring":
+    # --- TAMPILAN MONITORING (KINEMATIKA) ---
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Heading (Yaw)", f"{data['yaw']:.1f}°")
+    col2.metric("Posisi X", f"{data['x']:.2f} m")
+    col3.metric("Posisi Y", f"{data['y']:.2f} m")
 
-with col_left:
-    st.subheader("📍 Indoor Path Tracking (Classroom Scale)")
-    # Path tracking menggunakan Plotly (X-Y Plane)
-    fig_path = go.Figure()
-    # Simulasi jejak (trail)
-    trail_x = np.linspace(0, data['x'], 20)
-    trail_y = np.linspace(0, data['y'], 20)
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        st.subheader("📍 Indoor Path Tracking")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=[data['x']], y=[data['y']], mode='markers+text', 
+                                 marker=dict(size=20, color='red', symbol='triangle-up')))
+        fig.update_layout(xaxis=dict(range=[-3, 3]), yaxis=dict(range=[0, 6]), height=400, template="plotly_dark")
+        st.plotly_chart(fig, use_container_width=True)
     
-    fig_path.add_trace(go.Scatter(x=trail_x, y=trail_y, mode='lines', name='Path', line=dict(color='cyan', width=2)))
-    fig_path.add_trace(go.Scatter(x=[data['x']], y=[data['y']], mode='markers+text', 
-                                 name='Robot Pos', marker=dict(size=15, color='red', symbol='triangle-up')))
+    with c2:
+        st.subheader("⚙️ Wheel Synchronization")
+        motor_df = pd.DataFrame({'RPM': [data['m1'], data['m2'], data['m3'], data['m4']]}, index=['M1', 'M2', 'M3', 'M4'])
+        st.bar_chart(motor_df)
+
+elif st.session_state.active_mode == "🎮 Manual Control":
+    # --- TAMPILAN MANUAL (REMOTE) ---
+    st.subheader("Remote Control - Nexus 45° Omni")
+    st.write("Klik tombol untuk mengirim perintah pergerakan ke robot.")
     
-    fig_path.update_layout(
-        xaxis=dict(range=[-3, 3], gridcolor='gray'),
-        yaxis=dict(range=[0, 6], gridcolor='gray'),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color="white"),
-        height=400,
-        margin=dict(l=20, r=20, t=30, b=20)
-    )
-    st.plotly_chart(fig_path, use_container_width=True)
+    # Layout Remote Control 3x3
+    row1_1, row1_2, row1_3 = st.columns(3)
+    if row1_1.button("↖️"): st.session_state.last_command = "MAJU-KIRI"
+    if row1_2.button("⬆️ MAJU"): st.session_state.last_command = "MAJU"
+    if row1_3.button("↗️"): st.session_state.last_command = "MAJU-KANAN"
 
-with col_right:
-    st.subheader("⚙️ Motor Synchronization (RPM)")
-    # Data motor untuk grafik
-    motor_df = pd.DataFrame({
-        'Motor': ['M1', 'M2', 'M3', 'M4'],
-        'RPM': [data['m1'], data['m2'], data['m3'], data['m4']]
-    })
-    st.bar_chart(motor_df.set_index('Motor'))
+    row2_1, row2_2, row2_3 = st.columns(3)
+    if row2_1.button("⬅️ KIRI"): st.session_state.last_command = "GESER KIRI"
+    if row2_2.button("🛑 STOP", type="primary"): st.session_state.last_command = "STOP"
+    if row2_3.button("➡️ KANAN"): st.session_state.last_command = "GESER KANAN"
+
+    row3_1, row3_2, row3_3 = st.columns(3)
+    if row3_1.button("↙️"): st.session_state.last_command = "MUNDUR-KIRI"
+    if row3_2.button("⬇️ MUNDUR"): st.session_state.last_command = "MUNDUR"
+    if row3_3.button("↘️"): st.session_state.last_command = "MUNDUR-KANAN"
+
+    st.divider()
+    st.info(f"Sinyal Terkirim: **{st.session_state.last_command}**")
+
+elif st.session_state.active_mode == "🤖 Auto Mode":
+    # --- TAMPILAN AUTO (ON/OFF) ---
+    st.subheader("Autonomous Navigation")
+    st.write("Robot akan berjalan berdasarkan algoritma deteksi rintangan / fuzzy logic.")
     
-    # Indikator Kemiringan IMU
-    st.write("**IMU Stability (Pitch & Roll)**")
-    st.progress(abs(data['pitch']/10), text=f"Pitch: {data['pitch']:.1f}°")
-    st.progress(abs(data['roll']/10), text=f"Roll: {data['roll']:.1f}°")
+    auto_status = st.toggle("AKTIFKAN SISTEM OTOMATIS")
+    
+    if auto_status:
+        st.success("STATUS: Robot sedang berjalan otomatis...")
+        st.write("Sistem sedang memproses data sensor untuk navigasi kelas.")
+    else:
+        st.error("STATUS: Sistem Otomatis Mati.")
 
-# --- BARIS 3: TABEL DATA MENTAH ---
-with st.expander("Lihat Data Mentah (Telemetri)"):
-    raw_data = pd.DataFrame([data])
-    st.write(raw_data)
+# --- FOOTER DATA ---
+with st.expander("Sensor Detail (IMU Stability)"):
+    st.write(f"Pitch: {data['pitch']:.2f}° | Roll: {data['roll']:.2f}°")
 
-# Auto-refresh dashboard
-time.sleep(0.1)
+# Auto-refresh agar data terlihat hidup
+time.sleep(0.5)
 st.rerun()
